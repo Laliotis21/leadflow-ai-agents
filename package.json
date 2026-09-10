@@ -1,0 +1,20 @@
+{
+  "name": "leadflow-ai-agents",
+  "version": "1.0.0",
+  "description": "Business lead discovery and AI outreach starter with a monitoring dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.6.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "resend": "^6.27.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

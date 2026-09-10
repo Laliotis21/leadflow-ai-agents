@@ -1,0 +1,36 @@
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "supabase-access-token",
+      "description": "Supabase Personal Access Token (starts with sbp_). Create it at https://supabase.com/dashboard/account/tokens",
+      "password": true
+    },
+    {
+      "type": "promptString",
+      "id": "resend-api-key",
+      "description": "Resend API key (starts with re_). Create it at https://resend.com/api-keys",
+      "password": true
+    }
+  ],
+  "servers": {
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--project-ref=glznwlevoccqgohpsnjl"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "${input:supabase-access-token}"
+      }
+    },
+    "resend": {
+      "type": "http",
+      "url": "https://mcp.resend.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${input:resend-api-key}"
+      }
+    }
+  }
+}

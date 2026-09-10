@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="el">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <title>LeadFlow AI · Agent Control Center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Μετάβαση στο περιεχόμενο</a>
+
+    <div class="app-shell">
+      <!-- ================= SIDEBAR ================= -->
+      <aside class="sidebar" aria-label="Πλοήγηση και ρυθμίσεις agent">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M13 2 3 14h7l-1 8 10-12h-7z" />
+            </svg>
+          </div>
+          <div class="brand-text">
+            <p class="eyebrow">AI Business</p>
+            <h1>LeadFlow</h1>
+          </div>
+        </div>
+
+        <nav class="nav" aria-label="Ενότητες">
+          <button class="nav-item active" data-view="overview">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+            <span>Overview</span>
+          </button>
+          <button class="nav-item" data-view="leads">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span>Leads</span>
+          </button>
+          <button class="nav-item" data-view="agents">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M9 4h6M9 14h.01M15 14h.01"/></svg>
+            <span>Agents</span>
+          </button>
+          <button class="nav-item" data-view="activity">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            <span>Activity</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-card">
+          <div class="card-title-row">
+            <p class="eyebrow accent">Discovery Engine</p>
+            <span class="live-status">
+              <span class="dot online" id="googleStatusDot" aria-hidden="true"></span>
+              <span id="googleStatusText" class="live-status-text">Έλεγχος…</span>
+            </span>
+          </div>
+
+          <div class="control-group">
+            <label class="input-label" for="citySelect">Πόλη στόχος</label>
+            <div class="select-wrap">
+              <select id="citySelect" class="styled-select">
+                <option value="Athens">Αθήνα</option>
+                <option value="Thessaloniki">Θεσσαλονίκη</option>
+                <option value="Patras">Πάτρα</option>
+                <option value="Heraklion">Ηράκλειο</option>
+                <option value="Larissa">Λάρισα</option>
+                <option value="Chania">Χανιά</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <label class="input-label" for="categorySelect">Κλάδος / Niche</label>
+            <div class="select-wrap">
+              <select id="categorySelect" class="styled-select">
+                <option value="Dental Clinic">Οδοντίατροι & Κλινικές</option>
+                <option value="Hair &amp; Beauty Salon">Κομμωτήρια & Spa</option>
+                <option value="Auto Repair">Συνεργεία Αυτοκινήτων</option>
+                <option value="Restaurant">Εστιατόρια & Καφέ</option>
+                <option value="Law Office">Δικηγόροι & Σύμβουλοι</option>
+                <option value="Physiotherapy">Φυσικοθεραπεία & Υγεία</option>
+              </select>
+            </div>
+          </div>
+
+          <button class="primary-btn" id="runDiscoveryBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>
+            <span>Εκτέλεση Discovery</span>
+          </button>
+          <div class="btn-row">
+            <button class="ghost-btn" id="runOutreachBtn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+              <span>Outreach</span>
+            </button>
+            <button class="ghost-btn" id="runFullPipelineBtn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>
+              <span>Full Loop</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="quota-stack">
+          <div class="quota-box">
+            <div class="quota-header">
+              <span class="quota-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Budget Guard
+              </span>
+              <span class="badge-pill success" id="quotaCostBadge">0.00 €</span>
+            </div>
+            <div class="quota-metric">
+              <span>Μήνας</span>
+              <strong id="quotaMonthText">0 / 1000</strong>
+            </div>
+            <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="Χρήση Google Maps">
+              <span id="quotaProgressBar" style="width: 0%"></span>
+            </div>
+            <small id="quotaRemainingText" class="quota-details">1.000 δωρεάν κλήσεις</small>
+          </div>
+
+          <div class="quota-box">
+            <div class="quota-header">
+              <span class="quota-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+                Email (Resend)
+              </span>
+              <span class="badge-pill" id="emailStatusBadge">Sim</span>
+            </div>
+            <div class="quota-metric">
+              <span>Σήμερα</span>
+              <strong id="emailDayText">0 / 10</strong>
+            </div>
+            <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="Χρήση email">
+              <span id="emailProgressBar" style="width: 0%"></span>
+            </div>
+            <small id="emailRemainingText" class="quota-details">Free tier protected</small>
+          </div>
+        </div>
+      </aside>
+
+      <!-- ================= MAIN ================= -->
+      <main class="main-panel" id="main">
+        <header class="topbar">
+          <div class="topbar-title">
+            <p class="eyebrow">Operations overview</p>
+            <h2>Agent Control Center</h2>
+          </div>
+
+          <div class="topbar-actions">
+            <div class="search-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="leadSearchInput" placeholder="Αναζήτηση lead…" aria-label="Αναζήτηση leads" />
+            </div>
+            <label class="auto-toggle" title="Αυτόματη ανανέωση κάθε 15s">
+              <input type="checkbox" id="autoRefreshToggle" checked />
+              <span class="auto-toggle-track" aria-hidden="true"></span>
+              <span class="auto-toggle-text">Live</span>
+            </label>
+            <button class="icon-btn" id="refreshBtn" aria-label="Ανανέωση">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+            </button>
+          </div>
+        </header>
+
+        <div id="toastNotification" class="toast hidden" role="status" aria-live="polite"></div>
+
+        <!-- KPI CARDS -->
+        <section class="stats-grid" id="statsGrid" aria-label="Βασικοί δείκτες"></section>
+
+        <!-- BENTO GRID -->
+        <section class="bento">
+          <!-- Pipeline funnel -->
+          <article class="panel pipeline-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Pipeline</p>
+                <h3>Live Lead Funnel</h3>
+              </div>
+              <span class="panel-tag" id="pipelineTotal">0 leads</span>
+            </div>
+            <div class="funnel" id="pipelineStages" aria-label="Στάδια pipeline"></div>
+          </article>
+
+          <!-- Agent health -->
+          <article class="panel agents-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Performance</p>
+                <h3>Agent Health</h3>
+              </div>
+            </div>
+            <div class="agent-list" id="agentList"></div>
+          </article>
+
+          <!-- Live activity feed -->
+          <article class="panel activity-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Real-time</p>
+                <h3>Agent Activity</h3>
+              </div>
+              <span class="pulse-tag"><span class="pulse-dot" aria-hidden="true"></span> Live</span>
+            </div>
+            <ol class="activity-feed" id="activityFeed" aria-live="polite"></ol>
+          </article>
+        </section>
+
+        <!-- LEAD TABLE -->
+        <section class="panel table-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Lead queue</p>
+              <h3>Δυνητικοί πελάτες (χωρίς website)</h3>
+            </div>
+            <span class="panel-tag" id="leadCount">0</span>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Επιχείρηση</th>
+                  <th scope="col">Κλάδος</th>
+                  <th scope="col">Περιοχή</th>
+                  <th scope="col">Score</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Τελευταία ενέργεια</th>
+                  <th scope="col">Ενέργεια</th>
+                </tr>
+              </thead>
+              <tbody id="leadTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
