@@ -123,7 +123,9 @@ const STAT_META = [
   { icon: ICONS.discovered, cls: '' },
   { icon: ICONS.qualified, cls: 'accent-2' },
   { icon: ICONS.emails, cls: 'accent-3' },
+  { icon: ICONS.replies, cls: 'accent-2' },
   { icon: ICONS.replies, cls: 'accent-4' },
+  { icon: ICONS.emails, cls: '' },
 ];
 
 // ---------- health ----------

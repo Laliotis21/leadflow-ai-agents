@@ -1,4 +1,32 @@
 const { listLeads, listEvents } = require('../lib/leadsRepo');
+const { supabase, isSupabaseConfigured } = require('../lib/supabase');
+
+// Accurate email counts straight from the outreach_logs table, split by step.
+// step 1 = first (cold) email, steps 2/3 = follow-ups.
+async function getEmailBreakdown() {
+  const empty = { firstEmails: 0, followupEmails: 0, totalEmails: 0 };
+  if (!isSupabaseConfigured || !supabase) return empty;
+
+  try {
+    const { data, error } = await supabase
+      .from('outreach_logs')
+      .select('step')
+      .eq('status', 'sent');
+
+    if (error || !data) return empty;
+
+    let firstEmails = 0;
+    let followupEmails = 0;
+    for (const row of data) {
+      if (Number(row.step) <= 1) firstEmails += 1;
+      else followupEmails += 1;
+    }
+    return { firstEmails, followupEmails, totalEmails: firstEmails + followupEmails };
+  } catch (err) {
+    console.warn('[Dashboard] email breakdown failed:', err.message);
+    return empty;
+  }
+}
 
 function humanizeEventType(type) {
   if (!type) return 'Activity';
@@ -16,6 +44,7 @@ function pct(part, total) {
 async function buildDashboardOverview() {
   const leads = await listLeads(200);
   const events = await listEvents(30);
+  const emailBreakdown = await getEmailBreakdown();
 
   const leadById = new Map(leads.map((lead) => [lead.id, lead]));
 
@@ -23,27 +52,31 @@ async function buildDashboardOverview() {
   const qualifiedCount = leads.filter((l) => l.status === 'qualified').length;
   const scannedCount = leads.filter((l) => l.status !== 'new').length;
   const scoredCount = leads.filter((l) => l.score > 0).length;
-  const emailedCount = leads.filter((l) => (l.outreach_count || 0) > 0).length;
+  const contactedCount = leads.filter((l) => (l.outreach_count || 0) > 0).length;
   const followupCount = leads.filter((l) => l.status === 'followup').length;
   const repliedCount = leads.filter((l) => l.status === 'replied').length;
   const disqualifiedCount = leads.filter((l) => l.status === 'disqualified' || l.status === 'dead').length;
 
-  // Reply rate = replies / emails sent (real conversion signal).
-  const replyRate = pct(repliedCount, emailedCount);
+  const { firstEmails, followupEmails, totalEmails } = emailBreakdown;
+
+  // Reply rate = replies / companies contacted (real conversion per prospect).
+  const replyRate = pct(repliedCount, contactedCount || 1);
 
   const stats = [
-    { label: 'Total discovered', value: String(total), trend: `${scannedCount} scanned` },
+    { label: 'Επιχειρήσεις', value: String(total), trend: `${scannedCount} scanned` },
     { label: 'Qualified', value: String(qualifiedCount), trend: `${pct(qualifiedCount, total)}% of leads` },
-    { label: 'Emails sent', value: String(emailedCount), trend: `${followupCount} in follow-up` },
-    { label: 'Replies', value: String(repliedCount), trend: `${replyRate}% reply rate` },
+    { label: '1α emails', value: String(firstEmails), trend: `${contactedCount} επιχειρήσεις` },
+    { label: 'Follow-up emails', value: String(followupEmails), trend: `${followupCount} σε εξέλιξη` },
+    { label: 'Απαντήσεις', value: String(repliedCount), trend: `${replyRate}% reply rate` },
+    { label: 'Σύνολο emails', value: String(totalEmails), trend: `${firstEmails} + ${followupEmails} follow-up` },
   ];
 
   const agents = [
     { name: 'Discovery Agent', health: 'Online', success: pct(total, total || 1) || 100, note: `${total} businesses discovered` },
     { name: 'Scanner Agent', health: 'Online', success: pct(scannedCount, total), note: `Enriched ${scannedCount}/${total} businesses` },
     { name: 'Qualification Agent', health: 'Online', success: pct(qualifiedCount, qualifiedCount + disqualifiedCount), note: `${qualifiedCount} qualified · ${disqualifiedCount} disqualified` },
-    { name: 'Outreach Agent', health: 'Online', success: pct(emailedCount, qualifiedCount || 1), note: `${emailedCount} outbound emails sent` },
-    { name: 'Follow-up Agent', health: followupCount > 0 ? 'Running' : 'Online', success: replyRate, note: `${followupCount} leads in nurture · ${replyRate}% reply rate` },
+    { name: 'Outreach Agent', health: 'Online', success: pct(contactedCount, qualifiedCount || 1), note: `${firstEmails} πρώτα emails σε ${contactedCount} επιχειρήσεις` },
+    { name: 'Follow-up Agent', health: followupCount > 0 ? 'Running' : 'Online', success: replyRate, note: `${followupEmails} follow-up emails · ${replyRate}% reply rate` },
   ];
 
   const activity = events.map((event) => {
