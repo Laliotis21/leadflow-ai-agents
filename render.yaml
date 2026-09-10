@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: leadflow-ai-agents
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.0
+      - key: PORT
+        value: 3000
+      - key: AUTOMATION_ENABLED
+        value: "true"
+      - key: PIPELINE_INTERVAL_MS
+        value: "1800000"
+      - key: KEEPALIVE_INTERVAL_MS
+        value: "840000"
+      # Set these as SECRETS in the Render dashboard (do NOT commit real values):
+      # PUBLIC_URL, SUPABASE_URL, SUPABASE_ANON_KEY, GOOGLE_MAPS_API_KEY,
+      # RESEND_API_KEY, EMAIL_FROM, EMAIL_FROM_NAME, EMAIL_REPLY_TO,
+      # EMAIL_DAILY_LIMIT, EMAIL_MONTHLY_LIMIT, EMAIL_TEST_REDIRECT
+      - key: PUBLIC_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: EMAIL_FROM_NAME
+        sync: false
+      - key: EMAIL_REPLY_TO
+        sync: false
+      - key: EMAIL_DAILY_LIMIT
+        sync: false
+      - key: EMAIL_MONTHLY_LIMIT
+        sync: false
+      - key: EMAIL_TEST_REDIRECT
+        sync: false

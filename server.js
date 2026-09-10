@@ -16,6 +16,8 @@ const { buildDashboardOverview } = require('./src/services/dashboardService');
 const { searchPlaces } = require('./src/services/googlePlacesService');
 const { getUsageStats } = require('./src/services/quotaGuard');
 const { getEmailUsage, isEmailConfigured } = require('./src/services/emailService');
+const { startScheduler, runPipelineOnce, getSchedulerStatus } = require('./src/services/scheduler');
+const { startKeepAlive } = require('./src/services/keepAlive');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -76,7 +78,20 @@ app.get('/api/quota/stats', async (req, res) => {
     const stats = await getUsageStats('google_maps');
     res.json({ ok: true, stats });
   } catch (error) {
+   
+
+app.get('/api/scheduler/status', (req, res) => {
+  res.json({ ok: true, scheduler: getSchedulerStatus() });
+});
+
+app.post('/api/scheduler/run', async (req, res) => {
+  try {
+    const result = await runPipelineOnce();
+    res.json({ ok: true, result });
+  } catch (error) {
     res.status(500).json({ ok: false, error: error.message });
+  }
+}); res.status(500).json({ ok: false, error: error.message });
   }
 });
 
@@ -207,6 +222,8 @@ app.post('/unsubscribe', async (req, res) => {
     if (leadId) {
       await updateLead(leadId, { unsubscribed: true, status: 'dead', last_action: 'Unsubscribed (one-click)' });
       await addEvent(leadId, 'Reply Handler Agent', 'unsubscribed', {});
+  startScheduler();
+  startKeepAlive();
     }
   } catch (error) {
     console.warn('Unsubscribe failed:', error.message);
