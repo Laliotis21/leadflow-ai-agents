@@ -28,10 +28,25 @@ function checkLocalReset() {
   }
 }
 
+// Short-lived cache so frequent health/dashboard pings don't hit Supabase
+// on every call. Invalidated whenever a live request is recorded.
+const STATS_TTL_MS = 10 * 1000;
+const statsCache = new Map(); // provider -> { at, data }
+
+function invalidateStatsCache(provider) {
+  if (provider) statsCache.delete(provider);
+  else statsCache.clear();
+}
+
 /**
  * Get current usage statistics for Google Maps (or other providers)
  */
 async function getUsageStats(provider = 'google_maps') {
+  const cached = statsCache.get(provider);
+  if (cached && Date.now() - cached.at < STATS_TTL_MS) {
+    return cached.data;
+  }
+
   checkLocalReset();
 
   const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
@@ -81,7 +96,7 @@ async function getUsageStats(provider = 'google_maps') {
     blockReason = `Daily safety limit reached (${dailyCount}/${DAILY_LIMIT} requests). Further calls paused until tomorrow.`;
   }
 
-  return {
+  const result = {
     provider,
     monthlyCount,
     monthlyLimit: MONTHLY_LIMIT,
@@ -94,6 +109,9 @@ async function getUsageStats(provider = 'google_maps') {
     cacheEntriesCount: queryCache.size,
     estimatedCostEur: '0.00 €',
   };
+
+  statsCache.set(provider, { at: Date.now(), data: result });
+  return result;
 }
 
 /**
@@ -124,6 +142,7 @@ async function recordUsage({
     localDailyCount += 1;
     localMonthlyCount += 1;
   }
+  invalidateStatsCache(provider);
 
   if (isSupabaseConfigured && supabase) {
     try {
@@ -142,25 +161,60 @@ async function recordUsage({
 }
 
 /**
- * Cache helpers to avoid duplicate calls for identical city & category
+ * Cache helpers to avoid duplicate calls for identical city & category.
+ * Backed by Supabase (`public.search_cache`) so entries survive restarts on
+ * free hosts, with an in-memory layer as a fast path and offline fallback.
  */
-function getFromCache(key) {
+async function getFromCache(key) {
+  // Fast path: in-memory
   const item = queryCache.get(key);
-  if (!item) return null;
-
-  if (Date.now() - item.timestamp > CACHE_TTL_MS) {
-    queryCache.delete(key);
-    return null;
+  if (item) {
+    if (Date.now() - item.timestamp > CACHE_TTL_MS) {
+      queryCache.delete(key);
+    } else {
+      return item.data;
+    }
   }
 
-  return item.data;
+  if (!isSupabaseConfigured || !supabase) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('search_cache')
+      .select('payload, created_at')
+      .eq('cache_key', key)
+      .maybeSingle();
+
+    if (error || !data) return null;
+
+    if (Date.now() - new Date(data.created_at).getTime() > CACHE_TTL_MS) {
+      return null; // stale; a fresh search will overwrite it
+    }
+
+    // Warm the in-memory layer for subsequent hits this session
+    queryCache.set(key, { timestamp: new Date(data.created_at).getTime(), data: data.payload });
+    return data.payload;
+  } catch (err) {
+    console.warn('[QuotaGuard] cache read failed:', err.message);
+    return null;
+  }
 }
 
-function setToCache(key, data) {
-  queryCache.set(key, {
-    timestamp: Date.now(),
-    data,
-  });
+async function setToCache(key, data) {
+  queryCache.set(key, { timestamp: Date.now(), data });
+
+  if (!isSupabaseConfigured || !supabase) return;
+
+  try {
+    await supabase
+      .from('search_cache')
+      .upsert(
+        { cache_key: key, payload: data, created_at: new Date().toISOString() },
+        { onConflict: 'cache_key' }
+      );
+  } catch (err) {
+    console.warn('[QuotaGuard] cache write failed:', err.message);
+  }
 }
 
 module.exports = {

@@ -23,6 +23,10 @@ services:
       # PUBLIC_URL, SUPABASE_URL, SUPABASE_ANON_KEY, GOOGLE_MAPS_API_KEY,
       # RESEND_API_KEY, EMAIL_FROM, EMAIL_FROM_NAME, EMAIL_REPLY_TO,
       # EMAIL_DAILY_LIMIT, EMAIL_MONTHLY_LIMIT, EMAIL_TEST_REDIRECT
+      - key: API_KEY
+        sync: false
+      - key: UNSUBSCRIBE_SECRET
+        sync: false
       - key: PUBLIC_URL
         sync: false
       - key: SUPABASE_URL

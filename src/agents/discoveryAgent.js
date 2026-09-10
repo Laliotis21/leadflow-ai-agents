@@ -31,11 +31,17 @@ async function discoverBusinesses({
   const discovered = [];
   let skippedDuplicates = 0;
   let skippedWithWebsite = 0;
+  let withoutWebsiteCount = 0;
 
   for (const place of rawPlaces) {
     // Check if business has a standalone website
     const hasWebsite = place.website && place.website.trim().length > 0;
     const isSocialOnly = hasWebsite && /facebook\.com|instagram\.com|tiktok\.com|linkedin\.com/i.test(place.website);
+
+    // A lead counts as "without website" if it has no site or only social links.
+    if (!hasWebsite || isSocialOnly) {
+      withoutWebsiteCount += 1;
+    }
 
     if (onlyWithoutWebsite && hasWebsite && !isSocialOnly) {
       skippedWithWebsite += 1;
@@ -115,7 +121,7 @@ async function discoverBusinesses({
     city,
     category,
     totalFound: rawPlaces.length,
-    withoutWebsite: rawPlaces.length - skippedWithWebsite,
+    withoutWebsite: withoutWebsiteCount,
     insertedCount: discovered.length,
     skippedDuplicates,
     skippedWithWebsite,

@@ -9,7 +9,9 @@ const IMAP_CONFIG = {
   port: Number(process.env.IMAP_PORT || '993'),
   tls: String(process.env.IMAP_TLS || 'true').toLowerCase() !== 'false',
   tlsOptions: {
-    rejectUnauthorized: false,
+    // Verify the server certificate. Override only if you knowingly use a
+    // self-signed cert by setting IMAP_TLS_REJECT_UNAUTHORIZED=false.
+    rejectUnauthorized: String(process.env.IMAP_TLS_REJECT_UNAUTHORIZED || 'true').toLowerCase() !== 'false',
   },
 };
 

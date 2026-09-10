@@ -1,4 +1,4 @@
-const { listLeads, updateLead, addEvent } = require('../lib/leadsRepo');
+const { listLeads, updateLead, claimLead, addEvent } = require('../lib/leadsRepo');
 const { sendEmail, getEmailUsage } = require('../services/emailService');
 const { buildColdEmail } = require('../services/emailTemplates');
 
@@ -34,6 +34,14 @@ async function sendOutreach() {
       continue;
     }
 
+    // Atomically claim the lead so a concurrent run can't email it twice.
+    const claimed = await claimLead(lead.id, 'qualified', { status: 'sending' });
+    if (!claimed) {
+      skipped += 1;
+      details.push({ company: lead.company_name, result: 'already_claimed' });
+      continue;
+    }
+
     const { subject, text, html, template } = buildColdEmail(lead, 1);
     const result = await sendEmail({
       leadId: lead.id,
@@ -46,12 +54,15 @@ async function sendOutreach() {
     });
 
     if (result.blocked) {
+      // Release the claim so it can be retried on the next run.
+      await updateLead(lead.id, { status: 'qualified' });
       blocked += 1;
       details.push({ company: lead.company_name, result: 'rate_limited' });
       break; // stop early to respect free-tier limits
     }
 
     if (!result.ok) {
+      await updateLead(lead.id, { status: 'qualified', last_action: `Outreach failed: ${result.error}` });
       failed += 1;
       details.push({ company: lead.company_name, result: 'failed', error: result.error });
       continue;

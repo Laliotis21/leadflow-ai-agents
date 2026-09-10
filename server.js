@@ -19,9 +19,27 @@ const { getEmailUsage, isEmailConfigured } = require('./src/services/emailServic
 const { startScheduler, runPipelineOnce, getSchedulerStatus } = require('./src/services/scheduler');
 const { startKeepAlive } = require('./src/services/keepAlive');
 const { checkInboxForReplies, isImapConfigured } = require('./src/services/imapReplyService');
+const { verifyUnsubscribeToken } = require('./src/lib/tokens');
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Shared secret protecting mutating endpoints. Set API_KEY in the environment.
+// If unset, protected endpoints are disabled to avoid running open in production.
+const API_KEY = (process.env.API_KEY || '').trim();
+
+function requireApiKey(req, res, next) {
+  if (!API_KEY) {
+    return res.status(503).json({ ok: false, error: 'API_KEY not configured on server' });
+  }
+  const provided = (req.get('x-api-key') || '').trim();
+  const a = Buffer.from(provided);
+  const b = Buffer.from(API_KEY);
+  if (a.length !== b.length || !require('crypto').timingSafeEqual(a, b)) {
+    return res.status(401).json({ ok: false, error: 'unauthorized' });
+  }
+  next();
+}
 
 app.use(cors());
 app.use(express.json());
@@ -100,7 +118,7 @@ app.get('/api/scheduler/status', (req, res) => {
   res.json({ ok: true, scheduler: getSchedulerStatus() });
 });
 
-app.post('/api/scheduler/run', async (req, res) => {
+app.post('/api/scheduler/run', requireApiKey, async (req, res) => {
   try {
     const result = await runPipelineOnce();
     res.json({ ok: true, result });
@@ -119,7 +137,7 @@ app.get('/api/dashboard/overview', async (req, res) => {
   }
 });
 
-app.post('/api/google-maps/search', async (req, res) => {
+app.post('/api/google-maps/search', requireApiKey, async (req, res) => {
   try {
     const { query, city = 'Athens', category = '', limit = 10 } = req.body || {};
     const result = await searchPlaces({ query, city, category, limit });
@@ -129,7 +147,7 @@ app.post('/api/google-maps/search', async (req, res) => {
   }
 });
 
-app.post('/api/agents/discovery/run', async (req, res) => {
+app.post('/api/agents/discovery/run', requireApiKey, async (req, res) => {
   try {
     const {
       city = 'Athens',
@@ -152,7 +170,7 @@ app.post('/api/agents/discovery/run', async (req, res) => {
   }
 });
 
-app.post('/api/agents/scanner/run', async (req, res) => {
+app.post('/api/agents/scanner/run', requireApiKey, async (req, res) => {
   try {
     const result = await scanBusinesses();
     res.json(result);
@@ -161,7 +179,7 @@ app.post('/api/agents/scanner/run', async (req, res) => {
   }
 });
 
-app.post('/api/agents/qualification/run', async (req, res) => {
+app.post('/api/agents/qualification/run', requireApiKey, async (req, res) => {
   try {
     const result = await qualifyBusinesses();
     res.json(result);
@@ -170,7 +188,7 @@ app.post('/api/agents/qualification/run', async (req, res) => {
   }
 });
 
-app.post('/api/agents/outreach/run', async (req, res) => {
+app.post('/api/agents/outreach/run', requireApiKey, async (req, res) => {
   try {
     const result = await sendOutreach();
     res.json(result);
@@ -179,7 +197,7 @@ app.post('/api/agents/outreach/run', async (req, res) => {
   }
 });
 
-app.post('/api/agents/followup/run', async (req, res) => {
+app.post('/api/agents/followup/run', requireApiKey, async (req, res) => {
   try {
     const result = await runFollowUps();
     res.json(result);
@@ -188,7 +206,7 @@ app.post('/api/agents/followup/run', async (req, res) => {
   }
 });
 
-app.post('/api/agents/reply-handler', async (req, res) => {
+app.post('/api/agents/reply-handler', requireApiKey, async (req, res) => {
   try {
     const { leadId, sentiment = 'positive' } = req.body || {};
 
@@ -207,8 +225,9 @@ app.post('/api/agents/reply-handler', async (req, res) => {
 
 app.get('/unsubscribe', async (req, res) => {
   const leadId = req.query.lead;
+  const token = req.query.t;
   try {
-    if (leadId) {
+    if (leadId && verifyUnsubscribeToken(leadId, token)) {
       await updateLead(leadId, {
         unsubscribed: true,
         status: 'dead',
@@ -232,8 +251,9 @@ app.get('/unsubscribe', async (req, res) => {
 
 app.post('/unsubscribe', async (req, res) => {
   const leadId = req.query.lead || (req.body && req.body.lead);
+  const token = req.query.t || (req.body && req.body.t);
   try {
-    if (leadId) {
+    if (leadId && verifyUnsubscribeToken(leadId, token)) {
       await updateLead(leadId, { unsubscribed: true, status: 'dead', last_action: 'Unsubscribed (one-click)' });
       await addEvent(leadId, 'Reply Handler Agent', 'unsubscribed', {});
     }

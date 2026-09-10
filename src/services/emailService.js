@@ -1,5 +1,6 @@
 const { Resend } = require('resend');
 const { supabase, isSupabaseConfigured } = require('../lib/supabase');
+const { makeUnsubscribeToken } = require('../lib/tokens');
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'onboarding@resend.dev';
@@ -32,7 +33,22 @@ function checkLocalReset() {
   }
 }
 
+// Short-lived cache so frequent health/dashboard pings don't hit Supabase
+// on every call. Invalidated whenever an email is actually sent.
+const USAGE_TTL_MS = 10 * 1000;
+let usageCache = null;
+let usageCacheAt = 0;
+
+function invalidateUsageCache() {
+  usageCache = null;
+  usageCacheAt = 0;
+}
+
 async function getEmailUsage() {
+  if (usageCache && Date.now() - usageCacheAt < USAGE_TTL_MS) {
+    return usageCache;
+  }
+
   checkLocalReset();
 
   const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
@@ -71,7 +87,7 @@ async function getEmailUsage() {
     blockReason = `Daily email limit reached (${dailyCount}/${EMAIL_DAILY_LIMIT}). Resumes tomorrow.`;
   }
 
-  return {
+  usageCache = {
     configured: isEmailConfigured,
     from: `${EMAIL_FROM_NAME} <${EMAIL_FROM}>`,
     testRedirect: EMAIL_TEST_REDIRECT || null,
@@ -84,6 +100,8 @@ async function getEmailUsage() {
     isBlocked: isDailyExceeded || isMonthlyExceeded,
     blockReason,
   };
+  usageCacheAt = Date.now();
+  return usageCache;
 }
 
 async function logOutreach(entry) {
@@ -103,7 +121,8 @@ async function sendEmail({ leadId, to, subject, html, text, template = 'cold-ema
     return { ok: false, skipped: true, reason: 'missing_recipient' };
   }
 
-  const unsubUrl = `${PUBLIC_BASE_URL}/unsubscribe?lead=${encodeURIComponent(leadId || '')}`;
+  const unsubToken = makeUnsubscribeToken(leadId || '');
+  const unsubUrl = `${PUBLIC_BASE_URL}/unsubscribe?lead=${encodeURIComponent(leadId || '')}&t=${unsubToken}`;
   const extraHeaders = {
     'List-Unsubscribe': `<${unsubUrl}>`,
     'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
@@ -173,6 +192,7 @@ async function sendEmail({ leadId, to, subject, html, text, template = 'cold-ema
     checkLocalReset();
     localDailyCount += 1;
     localMonthlyCount += 1;
+    invalidateUsageCache();
 
     await logOutreach({
       lead_id: leadId,

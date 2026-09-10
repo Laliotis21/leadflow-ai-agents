@@ -39,6 +39,37 @@ let lastActivityIds = new Set();
 let autoRefreshTimer = null;
 const AUTO_REFRESH_MS = 15000;
 
+// ---------- API key (for mutating endpoints) ----------
+function getApiKey() {
+  let key = localStorage.getItem('leadflow_api_key');
+  if (!key) {
+    key = window.prompt('Δώσε το API key για να τρέξεις agents:') || '';
+    if (key) localStorage.setItem('leadflow_api_key', key.trim());
+  }
+  return (key || '').trim();
+}
+
+// Wrapper for protected POST calls: attaches x-api-key and re-prompts on 401.
+async function apiPost(url, body) {
+  const doFetch = () =>
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': getApiKey(),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+  let res = await doFetch();
+  if (res.status === 401) {
+    localStorage.removeItem('leadflow_api_key');
+    showToast('Λάθος API key — δοκίμασε ξανά', 'error');
+    res = await doFetch();
+  }
+  return res;
+}
+
 // ---------- helpers ----------
 function esc(value) {
   if (value === null || value === undefined) return '';
@@ -312,11 +343,7 @@ function filterLeads(leads, term) {
 
 async function simulateReply(leadId) {
   try {
-    const res = await fetch('/api/agents/reply-handler', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ leadId, sentiment: 'positive' }),
-    });
+    const res = await apiPost('/api/agents/reply-handler', { leadId, sentiment: 'positive' });
     const result = await res.json();
     if (result.ok) {
       showToast('Ο lead απάντησε θετικά! Μετακινήθηκε σε Replied.', 'success');
@@ -375,11 +402,7 @@ if (el.runDiscoveryBtn) {
     const category = el.categorySelect ? el.categorySelect.value : 'Dental Clinic';
     setBtnLoading(el.runDiscoveryBtn, 'Αναζήτηση…');
     try {
-      const res = await fetch('/api/agents/discovery/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ city, category, limit: 5, onlyWithoutWebsite: true }),
-      });
+      const res = await apiPost('/api/agents/discovery/run', { city, category, limit: 5, onlyWithoutWebsite: true });
       const data = await res.json();
       if (data.ok) {
         showToast(`Βρέθηκαν ${data.insertedCount} νέες επιχειρήσεις στην ${city}!`, 'success');
@@ -399,7 +422,7 @@ if (el.runOutreachBtn) {
   el.runOutreachBtn.addEventListener('click', async () => {
     setBtnLoading(el.runOutreachBtn, 'Αποστολή…');
     try {
-      const res = await fetch('/api/agents/outreach/run', { method: 'POST' });
+      const res = await apiPost('/api/agents/outreach/run');
       const data = await res.json();
       if (data.ok) {
         const mode = data.usage && data.usage.configured ? 'στάλθηκαν' : 'simulated';
@@ -428,17 +451,13 @@ if (el.runFullPipelineBtn) {
       const category = el.categorySelect ? el.categorySelect.value : 'Dental Clinic';
 
       showToast('1/4 · Discovery Agent…');
-      await fetch('/api/agents/discovery/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ city, category, limit: 3, onlyWithoutWebsite: true }),
-      });
+      await apiPost('/api/agents/discovery/run', { city, category, limit: 3, onlyWithoutWebsite: true });
       showToast('2/4 · Scanner Agent…');
-      await fetch('/api/agents/scanner/run', { method: 'POST' });
+      await apiPost('/api/agents/scanner/run');
       showToast('3/4 · Qualification Agent…');
-      await fetch('/api/agents/qualification/run', { method: 'POST' });
+      await apiPost('/api/agents/qualification/run');
       showToast('4/4 · Outreach Agent…');
-      await fetch('/api/agents/outreach/run', { method: 'POST' });
+      await apiPost('/api/agents/outreach/run');
 
       showToast('Pipeline ολοκληρώθηκε! Όλοι οι agents έτρεξαν.', 'success');
       await loadDashboard();

@@ -49,7 +49,7 @@ async function searchPlaces({
   const cacheKey = `gmap::${city.toLowerCase()}::${category.toLowerCase()}::${searchQuery.toLowerCase()}`;
 
   // 1. Check Cache first (100% Free, 0 Google API requests)
-  const cached = getFromCache(cacheKey);
+  const cached = await getFromCache(cacheKey);
   if (cached) {
     await recordUsage({
       provider: 'google_maps',
@@ -95,55 +95,77 @@ async function searchPlaces({
   // 4. Perform live request under protected quota
   try {
     const url = 'https://places.googleapis.com/v1/places:searchText';
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': apiKey,
-        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.rating,places.userRatingCount,places.primaryType,places.types,places.googleMapsUri,places.businessStatus',
-      },
-      body: JSON.stringify({
+    const places = [];
+    let pageToken = null;
+
+    // Each page is a separate billable request, so re-check quota per page
+    // and page only until we have enough results or run out of pages.
+    do {
+      if (places.length > 0) {
+        const pageQuota = await canMakeLiveRequest('google_maps');
+        if (!pageQuota.allowed) break;
+      }
+
+      const body = {
         textQuery: searchQuery,
-        pageSize: Math.min(limit, 20),
+        pageSize: Math.min(limit - places.length, 20),
         languageCode: 'el',
-      }),
-    });
+      };
+      if (pageToken) body.pageToken = pageToken;
 
-    if (!response.ok) {
-      return await searchPlacesLegacy({ searchQuery, limit, apiKey, cacheKey, city, category });
-    }
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': 'nextPageToken,places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.rating,places.userRatingCount,places.primaryType,places.types,places.googleMapsUri,places.businessStatus',
+        },
+        body: JSON.stringify(body),
+      });
 
-    const data = await response.json();
-    const places = (data.places || []).map((p) => ({
-      placeId: p.id,
-      companyName: p.displayName?.text || 'Unnamed Business',
-      category: p.primaryType || (p.types && p.types[0]) || category || 'Business',
-      city,
-      address: p.formattedAddress || `${city}, Greece`,
-      phone: p.nationalPhoneNumber || null,
-      website: p.websiteUri || null,
-      rating: p.rating || null,
-      userRatingCount: p.userRatingCount || 0,
-      googleMapsUri: p.googleMapsUri || null,
-      businessStatus: p.businessStatus || 'OPERATIONAL',
-      rawTypes: p.types || [],
-    }));
+      if (!response.ok) {
+        if (places.length > 0) break; // keep what we already have
+        return await searchPlacesLegacy({ searchQuery, limit, apiKey, cacheKey, city, category });
+      }
+
+      const data = await response.json();
+      for (const p of data.places || []) {
+        places.push({
+          placeId: p.id,
+          companyName: p.displayName?.text || 'Unnamed Business',
+          category: p.primaryType || (p.types && p.types[0]) || category || 'Business',
+          city,
+          address: p.formattedAddress || `${city}, Greece`,
+          phone: p.nationalPhoneNumber || null,
+          website: p.websiteUri || null,
+          rating: p.rating || null,
+          userRatingCount: p.userRatingCount || 0,
+          googleMapsUri: p.googleMapsUri || null,
+          businessStatus: p.businessStatus || 'OPERATIONAL',
+          rawTypes: p.types || [],
+        });
+      }
+
+      // Record each live page request in the Supabase usage tracker
+      await recordUsage({
+        provider: 'google_maps',
+        endpoint: 'places.googleapis.com/v1/places:searchText',
+        queryParams: { city, category, query: searchQuery, limit, page: pageToken ? 'next' : 'first' },
+        isCached: false,
+        status: 'success',
+      });
+
+      pageToken = data.nextPageToken || null;
+    } while (pageToken && places.length < limit);
+
+    const trimmed = places.slice(0, limit);
 
     // Cache results for 7 days so identical searches use 0 calls
-    setToCache(cacheKey, places);
-
-    // Record live request in Supabase usage tracker
-    await recordUsage({
-      provider: 'google_maps',
-      endpoint: 'places.googleapis.com/v1/places:searchText',
-      queryParams: { city, category, query: searchQuery, limit },
-      isCached: false,
-      status: 'success',
-    });
+    await setToCache(cacheKey, trimmed);
 
     return {
       mode: 'live',
-      results: places,
+      results: trimmed,
     };
   } catch (err) {
     console.warn(`[Google Places] Live API call failed (${err.message}). Falling back to legacy/mock.`);
@@ -202,7 +224,7 @@ async function searchPlacesLegacy({ searchQuery, limit = 10, apiKey, cacheKey, c
   );
 
   if (cacheKey) {
-    setToCache(cacheKey, enriched);
+    await setToCache(cacheKey, enriched);
   }
 
   await recordUsage({

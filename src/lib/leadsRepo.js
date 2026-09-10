@@ -47,6 +47,24 @@ async function updateLead(id, updates) {
   return data;
 }
 
+// Atomically transition a lead only if it is still in the expected status.
+// Returns the updated row, or null if another worker already claimed it.
+async function claimLead(id, fromStatus, updates) {
+  const { data, error } = await supabase
+    .from('leads')
+    .update(updates)
+    .eq('id', id)
+    .eq('status', fromStatus)
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`claimLead failed: ${error.message}`);
+  }
+
+  return data || null;
+}
+
 async function addEvent(leadId, agentName, type, payload = {}) {
   const { error } = await supabase.from('events').insert({
     lead_id: leadId,
@@ -79,6 +97,7 @@ module.exports = {
   listLeads,
   insertLead,
   updateLead,
+  claimLead,
   addEvent,
   listEvents,
 };
