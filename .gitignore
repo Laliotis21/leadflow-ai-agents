@@ -42,3 +42,6 @@ desktop.ini
 dist/
 build/
 coverage/
+
+# Local scratch data (never deployed)
+data/

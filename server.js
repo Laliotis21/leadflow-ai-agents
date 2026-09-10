@@ -20,6 +20,7 @@ const { startScheduler, runPipelineOnce, getSchedulerStatus } = require('./src/s
 const { startKeepAlive } = require('./src/services/keepAlive');
 const { checkInboxForReplies, isImapConfigured } = require('./src/services/imapReplyService');
 const { verifyUnsubscribeToken } = require('./src/lib/tokens');
+const { getPublicBaseUrl, isPublicUrlConfigured } = require('./src/lib/publicUrl');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -41,11 +42,19 @@ function requireApiKey(req, res, next) {
   next();
 }
 
-app.use(cors());
+// The dashboard is served from this same origin, so cross-origin access is
+// only opened for the deployment's own public URL.
+app.use(cors({ origin: isPublicUrlConfigured() ? getPublicBaseUrl() : false }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'dashboard')));
 
-app.get('/api/health', async (req, res) => {
+// Public liveness probe (Render healthCheckPath). Deliberately says nothing
+// about configuration or data — the full picture lives behind /api/status.
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true, service: 'leadflow-ai-agents', timestamp: new Date().toISOString() });
+});
+
+app.get('/api/status', requireApiKey, async (req, res) => {
   let supabaseStatus = 'not_configured';
 
   if (isSupabaseConfigured && supabase) {
@@ -84,10 +93,14 @@ app.get('/api/health', async (req, res) => {
       configured: isImapConfigured(),
       mode: isImapConfigured() ? 'live' : 'not_configured',
     },
+    publicUrl: {
+      configured: isPublicUrlConfigured(),
+      value: getPublicBaseUrl() || null,
+    },
   });
 });
 
-app.get('/api/email/stats', async (req, res) => {
+app.get('/api/email/stats', requireApiKey, async (req, res) => {
   try {
     const usage = await getEmailUsage();
     res.json({ ok: true, usage });
@@ -96,7 +109,7 @@ app.get('/api/email/stats', async (req, res) => {
   }
 });
 
-app.get('/api/quota/stats', async (req, res) => {
+app.get('/api/quota/stats', requireApiKey, async (req, res) => {
   try {
     const stats = await getUsageStats('google_maps');
     res.json({ ok: true, stats });
@@ -105,7 +118,8 @@ app.get('/api/quota/stats', async (req, res) => {
   }
 });
 
-app.get('/api/imap/status', async (req, res) => {
+// POST, not GET: this opens an IMAP connection and processes the inbox.
+app.post('/api/imap/check', requireApiKey, async (req, res) => {
   try {
     const result = await checkInboxForReplies();
     res.json({ ok: true, result });
@@ -114,7 +128,7 @@ app.get('/api/imap/status', async (req, res) => {
   }
 });
 
-app.get('/api/scheduler/status', (req, res) => {
+app.get('/api/scheduler/status', requireApiKey, (req, res) => {
   res.json({ ok: true, scheduler: getSchedulerStatus() });
 });
 
@@ -127,7 +141,7 @@ app.post('/api/scheduler/run', requireApiKey, async (req, res) => {
   }
 });
 
-app.get('/api/dashboard/overview', async (req, res) => {
+app.get('/api/dashboard/overview', requireApiKey, async (req, res) => {
   try {
     const overview = await buildDashboardOverview();
     res.json(overview);
@@ -267,8 +281,19 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dashboard', 'index.html'));
 });
 
-app.listen(port, () => {
-  console.log(`LeadFlow dashboard running on http://localhost:${port}`);
+// Surface misconfiguration in the deploy logs instead of failing silently later.
+function logConfigWarnings() {
+  if (!API_KEY) console.warn('[config] API_KEY missing — every mutating endpoint returns 503');
+  if (!process.env.UNSUBSCRIBE_SECRET) {
+    console.warn('[config] UNSUBSCRIBE_SECRET missing — unsubscribe links break on every restart');
+  }
+  if (!isPublicUrlConfigured()) console.warn('[config] no public URL — outreach emails will not be sent');
+  if (!isSupabaseConfigured) console.warn('[config] Supabase not configured — the pipeline cannot store leads');
+}
+
+app.listen(port, '0.0.0.0', () => {
+  logConfigWarnings();
+  console.log(`LeadFlow listening on port ${port} — public URL: ${getPublicBaseUrl() || '(not configured)'}`);
   startScheduler();
   startKeepAlive();
 });

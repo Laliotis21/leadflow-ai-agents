@@ -122,13 +122,31 @@ For a fully automatic system, add:
 2. Review `agents/agent-specs.md` for the agent architecture.
 3. Then wire the dashboard to Supabase / API.
 
-## Recommended deployment
+## API access
 
-- Frontend: Vercel
-- Backend/API: Railway or Fly.io
-- Database: Supabase
-- Email: Resend
-- Worker jobs: Railway workers or Temporal
+Everything except the liveness probe and the unsubscribe page requires the
+`x-api-key` header, matched against the `API_KEY` env var:
+
+| Endpoint | Auth |
+| --- | --- |
+| `GET /api/health` | public — liveness only, no data |
+| `GET /unsubscribe` | public — required by email clients |
+| `GET /api/status` | key |
+| `GET /api/dashboard/overview` | key |
+| `GET /api/quota/stats`, `GET /api/email/stats`, `GET /api/scheduler/status` | key |
+| `POST /api/imap/check`, `POST /api/scheduler/run`, all `POST /api/agents/*` | key |
+
+The dashboard asks for the key once and keeps it in `localStorage`.
+
+## Deployment
+
+Everything runs as a single Render web service (see `render.yaml`): the
+dashboard, the API and the in-process scheduler share one Node process.
+Supabase holds all state, so the instance is disposable.
+
+Database access uses `SUPABASE_SERVICE_ROLE_KEY` (server-side only, bypasses
+RLS). After setting it on Render, run `sql/rls.sql` in the Supabase SQL editor
+to close the tables to the public anon key.
 
 ## Next steps
 
@@ -147,3 +165,9 @@ This is a practical starter, not a final production system. For full automation,
 - a verified email sending domain
 - a proper CRM / lead database
 - rate limiting and anti-spam safeguards
+
+## Agent run history
+
+Every agent run writes its steps to the Supabase `events` table, and every email
+to `outreach_logs`. There is no local daemon or local state: the process is
+stateless and can be restarted or redeployed at any time.

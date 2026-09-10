@@ -48,8 +48,11 @@ async function discoverBusinesses({
       continue;
     }
 
-    // Deduplication check
-    const dedupKey = `${place.companyName.toLowerCase()}::${city.toLowerCase()}`;
+    // Deduplication check. The key must use the same city that gets persisted
+    // below, otherwise it never matches `existingKeys` (built from stored rows)
+    // and every lead is re-inserted on each run.
+    const leadCity = place.city || city;
+    const dedupKey = `${place.companyName.toLowerCase()}::${leadCity.toLowerCase()}`;
     if (existingKeys.has(dedupKey)) {
       skippedDuplicates += 1;
       continue;
@@ -82,7 +85,7 @@ async function discoverBusinesses({
     const leadRecord = {
       company_name: place.companyName,
       category: place.category || category || 'Business',
-      city: place.city || city,
+      city: leadCity,
       address: place.address || `${city}, Greece`,
       phone: place.phone || null,
       website: isSocialOnly ? null : (place.website || null),

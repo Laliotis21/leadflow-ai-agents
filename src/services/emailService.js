@@ -1,6 +1,7 @@
 const { Resend } = require('resend');
 const { supabase, isSupabaseConfigured } = require('../lib/supabase');
 const { makeUnsubscribeToken } = require('../lib/tokens');
+const { getPublicBaseUrl, isPublicUrlConfigured } = require('../lib/publicUrl');
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'onboarding@resend.dev';
@@ -9,7 +10,6 @@ const EMAIL_DAILY_LIMIT = parseInt(process.env.EMAIL_DAILY_LIMIT || '80', 10);
 const EMAIL_MONTHLY_LIMIT = parseInt(process.env.EMAIL_MONTHLY_LIMIT || '2500', 10);
 const EMAIL_TEST_REDIRECT = (process.env.EMAIL_TEST_REDIRECT || '').trim();
 const EMAIL_REPLY_TO = (process.env.EMAIL_REPLY_TO || '').trim();
-const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || 'http://localhost:3000').trim();
 
 const isEmailConfigured = !!RESEND_API_KEY && RESEND_API_KEY !== 'your_resend_api_key_here';
 const resend = isEmailConfigured ? new Resend(RESEND_API_KEY) : null;
@@ -121,8 +121,14 @@ async function sendEmail({ leadId, to, subject, html, text, template = 'cold-ema
     return { ok: false, skipped: true, reason: 'missing_recipient' };
   }
 
+  // Never send without a reachable unsubscribe link: it is both a legal
+  // requirement and the single biggest deliverability signal.
+  if (!isPublicUrlConfigured()) {
+    return { ok: false, skipped: true, reason: 'public_base_url_not_configured' };
+  }
+
   const unsubToken = makeUnsubscribeToken(leadId || '');
-  const unsubUrl = `${PUBLIC_BASE_URL}/unsubscribe?lead=${encodeURIComponent(leadId || '')}&t=${unsubToken}`;
+  const unsubUrl = `${getPublicBaseUrl()}/unsubscribe?lead=${encodeURIComponent(leadId || '')}&t=${unsubToken}`;
   const extraHeaders = {
     'List-Unsubscribe': `<${unsubUrl}>`,
     'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',

@@ -1,17 +1,18 @@
-// Free hosts (Render/Railway free) idle out after ~15 min of no traffic.
+// Render free web services idle out after ~15 min of no traffic.
 // This self-pings the public URL to keep the single process warm 24/7.
-// Set PUBLIC_URL to your deployed URL (e.g. https://leadflow.onrender.com).
+// The URL comes from RENDER_EXTERNAL_URL (injected by Render) or PUBLIC_BASE_URL.
+
+const { getPublicBaseUrl, isPublicUrlConfigured } = require('../lib/publicUrl');
 
 const KEEPALIVE_INTERVAL_MS = Number(process.env.KEEPALIVE_INTERVAL_MS) || 14 * 60 * 1000; // 14 min
 
 function startKeepAlive() {
-  const url = process.env.PUBLIC_URL;
-  if (!url) {
-    console.log('[keepalive] PUBLIC_URL not set — self-ping disabled');
+  if (!isPublicUrlConfigured()) {
+    console.log('[keepalive] no public URL (PUBLIC_BASE_URL / RENDER_EXTERNAL_URL) — self-ping disabled');
     return;
   }
 
-  const target = `${url.replace(/\/$/, '')}/api/health`;
+  const target = `${getPublicBaseUrl()}/api/health`;
   console.log(`[keepalive] pinging ${target} every ${Math.round(KEEPALIVE_INTERVAL_MS / 60000)} min`);
 
   const timer = setInterval(async () => {

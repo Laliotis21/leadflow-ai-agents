@@ -11,27 +11,30 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 20.11.0
-      - key: PORT
-        value: 3000
+      # PORT and RENDER_EXTERNAL_URL are injected by Render — do not set them.
       - key: AUTOMATION_ENABLED
         value: "true"
       - key: PIPELINE_INTERVAL_MS
         value: "1800000"
       - key: KEEPALIVE_INTERVAL_MS
         value: "840000"
+      - key: GOOGLE_MAPS_DAILY_LIMIT
+        value: "50"
+      - key: GOOGLE_MAPS_MONTHLY_LIMIT
+        value: "1000"
       # Set these as SECRETS in the Render dashboard (do NOT commit real values):
-      # PUBLIC_URL, SUPABASE_URL, SUPABASE_ANON_KEY, GOOGLE_MAPS_API_KEY,
-      # RESEND_API_KEY, EMAIL_FROM, EMAIL_FROM_NAME, EMAIL_REPLY_TO,
-      # EMAIL_DAILY_LIMIT, EMAIL_MONTHLY_LIMIT, EMAIL_TEST_REDIRECT
       - key: API_KEY
         sync: false
       - key: UNSUBSCRIBE_SECRET
         sync: false
-      - key: PUBLIC_URL
+      # Only needed when a custom domain fronts the service; otherwise Render's
+      # RENDER_EXTERNAL_URL is used automatically.
+      - key: PUBLIC_BASE_URL
         sync: false
       - key: SUPABASE_URL
         sync: false
-      - key: SUPABASE_ANON_KEY
+      # Service-role key: server-side only, bypasses RLS (see sql/rls.sql).
+      - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: GOOGLE_MAPS_API_KEY
         sync: false
@@ -49,6 +52,8 @@ services:
         sync: false
       - key: EMAIL_TEST_REDIRECT
         sync: false
+      - key: CONTACT_PHONE
+        sync: false
       - key: IMAP_HOST
         value: mail-gr.securemail.pro
       - key: IMAP_PORT
@@ -58,14 +63,4 @@ services:
       - key: IMAP_USER
         value: nikos@laliotisdigital.gr
       - key: IMAP_PASS
-        sync: false
-      - key: SMTP_HOST
-        value: smtp-gr.securemail.pro
-      - key: SMTP_PORT
-        value: "465"
-      - key: SMTP_SECURITY
-        value: SSL/TLS
-      - key: SMTP_USERNAME
-        value: nikos@laliotisdigital.gr
-      - key: SMTP_PASSWORD
         sync: false

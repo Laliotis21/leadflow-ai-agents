@@ -70,6 +70,20 @@ async function apiPost(url, body) {
   return res;
 }
 
+// Wrapper for protected GET calls: every endpoint that returns lead data or
+// configuration requires the same key.
+async function apiGet(url) {
+  const doFetch = () => fetch(url, { headers: { 'x-api-key': getApiKey() } });
+
+  let res = await doFetch();
+  if (res.status === 401) {
+    localStorage.removeItem('leadflow_api_key');
+    showToast('Λάθος API key — δοκίμασε ξανά', 'error');
+    res = await doFetch();
+  }
+  return res;
+}
+
 // ---------- helpers ----------
 function esc(value) {
   if (value === null || value === undefined) return '';
@@ -131,7 +145,7 @@ const STAT_META = [
 // ---------- health ----------
 async function checkHealth() {
   try {
-    const res = await fetch('/api/health');
+    const res = await apiGet('/api/status');
     const data = await res.json();
 
     if (data.googleMaps) {
@@ -198,7 +212,7 @@ async function checkHealth() {
 async function loadDashboard() {
   try {
     await checkHealth();
-    const response = await fetch('/api/dashboard/overview');
+    const response = await apiGet('/api/dashboard/overview');
     const data = await response.json();
 
     allLeads = data.leads || [];
