@@ -147,7 +147,7 @@ async function checkHealth() {
           el.googleStatusDot.style.background = '';
         }
       } else {
-        el.googleStatusText.textContent = 'Mock mode';
+        el.googleStatusText.textContent = 'Not configured';
         el.googleStatusDot.className = 'dot';
         el.googleStatusDot.style.background = 'var(--warning)';
       }

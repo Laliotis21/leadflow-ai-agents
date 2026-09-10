@@ -72,7 +72,7 @@ app.get('/api/health', async (req, res) => {
     },
     googleMaps: {
       configured: hasGoogleKey,
-      mode: hasGoogleKey ? (quotaStats.isBlocked ? 'blocked_quota' : 'live') : 'mock-fallback',
+      mode: hasGoogleKey ? (quotaStats.isBlocked ? 'blocked_quota' : 'live') : 'not_configured',
       quota: quotaStats,
     },
     email: {

@@ -14,7 +14,7 @@ async function discoverBusinesses({
   limit = 10,
   onlyWithoutWebsite = true,
 } = {}) {
-  // 1. Search Google Places (Live API or smart mock if key is not configured)
+  // 1. Search Google Places (live API only; no fake fallback data)
   const placesResult = await searchPlaces({
     query,
     city,

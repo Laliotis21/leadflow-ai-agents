@@ -65,12 +65,12 @@ async function searchPlaces({
     };
   }
 
-  // 2. Fallback to realistic mock if no key
+  // 2. No mock discovery data: if a live key is not configured, stop cleanly.
   if (!apiKey || apiKey === 'your_google_maps_api_key_here') {
     return {
-      mode: 'mock',
-      warning: 'No GOOGLE_MAPS_API_KEY found. Using realistic simulated data.',
-      results: generateMockPlaces(city, category, limit),
+      mode: 'not_configured',
+      warning: 'No GOOGLE_MAPS_API_KEY configured. Discovery is paused until a live key is configured.',
+      results: [],
     };
   }
 
@@ -88,7 +88,7 @@ async function searchPlaces({
     return {
       mode: 'blocked_quota',
       warning: quota.reason,
-      results: generateMockPlaces(city, category, limit),
+      results: [],
     };
   }
 
@@ -172,11 +172,11 @@ async function searchPlaces({
     try {
       return await searchPlacesLegacy({ searchQuery, limit, apiKey, cacheKey, city, category });
     } catch (legacyErr) {
-      console.warn(`[Google Places] Legacy API call also failed (${legacyErr.message}). Using simulated data.`);
+      console.warn(`[Google Places] Legacy API call also failed (${legacyErr.message}). No fallback data is used.`);
       return {
-        mode: 'mock',
-        warning: `API Error: ${err.message}. Using simulated data.`,
-        results: generateMockPlaces(city, category, limit),
+        mode: 'api_error',
+        warning: `API Error: ${err.message}. No fallback data is used.`,
+        results: [],
       };
     }
   }
@@ -250,96 +250,7 @@ async function fetchPlaceDetailsLegacy(placeId, apiKey) {
   return data.result || {};
 }
 
-/**
- * High-quality realistic mock data generator for offline testing
- */
-function generateMockPlaces(city, category = 'Dentist', limit = 5) {
-  const cat = category || 'Dentist';
-  const slug = city.toLowerCase().replace(/\s+/g, '');
-
-  const templates = [
-    {
-      nameSuffix: 'Studio',
-      defaultCategory: 'Beauty & Hair Salon',
-      hasPhone: true,
-      hasWebsite: false,
-      rating: 4.8,
-      reviews: 42,
-    },
-    {
-      nameSuffix: 'Care & Diagnostics',
-      defaultCategory: 'Dental Clinic',
-      hasPhone: true,
-      hasWebsite: false,
-      rating: 4.9,
-      reviews: 68,
-    },
-    {
-      nameSuffix: 'Specialized Auto Service',
-      defaultCategory: 'Auto Repair',
-      hasPhone: true,
-      hasWebsite: false,
-      rating: 4.6,
-      reviews: 29,
-    },
-    {
-      nameSuffix: 'Traditional Bakery & Cafe',
-      defaultCategory: 'Bakery / Cafe',
-      hasPhone: true,
-      hasWebsite: false,
-      rating: 4.7,
-      reviews: 115,
-    },
-    {
-      nameSuffix: 'Legal & Consulting Services',
-      defaultCategory: 'Law Office',
-      hasPhone: true,
-      hasWebsite: false,
-      rating: 5.0,
-      reviews: 14,
-    },
-    {
-      nameSuffix: 'Physiotherapy & Rehab',
-      defaultCategory: 'Medical Practice',
-      hasPhone: true,
-      hasWebsite: false,
-      rating: 4.9,
-      reviews: 53,
-    },
-    {
-      nameSuffix: 'Architects & Design',
-      defaultCategory: 'Architecture Studio',
-      hasPhone: true,
-      hasWebsite: false,
-      rating: 4.7,
-      reviews: 19,
-    },
-  ];
-
-  const streets = ['Ermou', 'Tsimiski', 'Mitropoleos', 'Panepistimiou', 'Kifisias', 'Agiou Andreou', 'Larisis'];
-
-  return templates.slice(0, limit).map((t, idx) => {
-    const name = `${city} ${t.nameSuffix} #${idx + 1}`;
-    const street = streets[idx % streets.length];
-    return {
-      placeId: `mock-gmap-${slug}-${idx + 1}-${Date.now().toString(36)}`,
-      companyName: name,
-      category: cat || t.defaultCategory,
-      city,
-      address: `${street} ${12 + idx * 7}, ${city}, Greece`,
-      phone: `+30 210 ${Math.floor(1000000 + Math.random() * 9000000)}`,
-      website: t.hasWebsite ? `https://${name.toLowerCase().replace(/[^a-z0-9]/g, '')}.gr` : null,
-      rating: t.rating,
-      userRatingCount: t.reviews,
-      googleMapsUri: `https://maps.google.com/?q=${encodeURIComponent(name + ' ' + city)}`,
-      businessStatus: 'OPERATIONAL',
-      rawTypes: [t.defaultCategory.toLowerCase().replace(/\s+/g, '_')],
-    };
-  });
-}
-
 module.exports = {
   searchPlaces,
   searchPlacesLegacy,
-  generateMockPlaces,
 };
