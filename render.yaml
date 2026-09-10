@@ -45,3 +45,23 @@ services:
         sync: false
       - key: EMAIL_TEST_REDIRECT
         sync: false
+      - key: IMAP_HOST
+        value: mail-gr.securemail.pro
+      - key: IMAP_PORT
+        value: "993"
+      - key: IMAP_TLS
+        value: "true"
+      - key: IMAP_USER
+        value: nikos@laliotisdigital.gr
+      - key: IMAP_PASS
+        sync: false
+      - key: SMTP_HOST
+        value: smtp-gr.securemail.pro
+      - key: SMTP_PORT
+        value: "465"
+      - key: SMTP_SECURITY
+        value: SSL/TLS
+      - key: SMTP_USERNAME
+        value: nikos@laliotisdigital.gr
+      - key: SMTP_PASSWORD
+        sync: false

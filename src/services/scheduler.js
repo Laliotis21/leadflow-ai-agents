@@ -2,6 +2,7 @@ const { scanBusinesses } = require('../agents/scannerAgent');
 const { qualifyBusinesses } = require('../agents/qualificationAgent');
 const { sendOutreach } = require('../agents/outreachAgent');
 const { runFollowUps } = require('../agents/followupAgent');
+const { checkInboxForReplies } = require('./imapReplyService');
 
 // In-process 24/7 automation. Runs the lead pipeline on a fixed interval
 // inside the same Node process that serves the dashboard + API.
@@ -30,6 +31,7 @@ async function runPipelineOnce() {
     steps.qualify = await safeStep(qualifyBusinesses);
     steps.outreach = await safeStep(sendOutreach);
     steps.followup = await safeStep(runFollowUps);
+    steps.replyCheck = await safeStep(checkInboxForReplies);
 
     lastError = null;
     lastResult = { startedAt: startedAt.toISOString(), finishedAt: new Date().toISOString(), steps };

@@ -11,6 +11,12 @@
       "id": "resend-api-key",
       "description": "Resend API key (starts with re_). Create it at https://resend.com/api-keys",
       "password": true
+    },
+    {
+      "type": "promptString",
+      "id": "render-api-key",
+      "description": "Render API key. Create it in your Render dashboard under Account Settings > API Keys",
+      "password": true
     }
   ],
   "servers": {
@@ -30,6 +36,13 @@
       "url": "https://mcp.resend.com/mcp",
       "headers": {
         "Authorization": "Bearer ${input:resend-api-key}"
+      }
+    },
+    "render": {
+      "type": "http",
+      "url": "https://mcp.render.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${input:render-api-key}"
       }
     }
   }
